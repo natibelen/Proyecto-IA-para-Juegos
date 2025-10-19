@@ -73,7 +73,7 @@ class RhythmGame:
         self.bg_start = pygame.transform.smoothscale(self.bg_start, (SCREEN_WIDTH, SCREEN_HEIGHT))
 
         # Song select background (can be replaced later)
-        self.bg_select = pygame.image.load("STARTBACKGROUND.png").convert()
+        self.bg_select = pygame.image.load("MUSICSELECT.png").convert()
         self.bg_select = pygame.transform.smoothscale(self.bg_select, (SCREEN_WIDTH, SCREEN_HEIGHT))
 
         self.arrow_img = pygame.image.load("arrow.png").convert_alpha()
@@ -92,13 +92,20 @@ class RhythmGame:
 
     # --- 🌸 START SCREEN ---
     def start_screen(self):
+        blink_interval = 0.6  # seconds between visible/invisible
+        show_text = (time.time() % (blink_interval * 2)) < blink_interval
+
+        # draw background
         self.screen.blit(self.bg_start, (0, 0))
-        title = self.font.render("Dance Dance Remix", True, WHITE)
-        prompt = self.font.render("Press ENTER to Start", True, PINK)
-        self.screen.blit(title, (SCREEN_WIDTH // 2 - 200, SCREEN_HEIGHT // 2 - 100))
-        self.screen.blit(prompt, (SCREEN_WIDTH // 2 - 180, SCREEN_HEIGHT // 2 + 50))
+
+        # only draw text during visible interval
+        if show_text:
+            prompt = self.font.render("Press ENTER to Start", True, WHITE)
+            self.screen.blit(prompt, (SCREEN_WIDTH // 2 - 180, SCREEN_HEIGHT // 2 + 225))
+
         pygame.display.flip()
 
+        # handle input
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
@@ -106,32 +113,73 @@ class RhythmGame:
                 self.current_scene = "select"
         return True
 
-    # --- 💿 SONG SELECT SCREEN ---
     def song_select_screen(self):
-        self.screen.blit(self.bg_select, (0, 0))
-        title = self.font.render("Select a Song 🎶", True, WHITE)
-        self.screen.blit(title, (SCREEN_WIDTH // 2 - 150, 100))
+        # Load and draw the background image
+        bg = pygame.image.load("MUSICSELECT.png").convert()
+        bg = pygame.transform.scale(bg, (SCREEN_WIDTH, SCREEN_HEIGHT))
+        self.screen.blit(bg, (0, 0))
 
-        # Song options (you can add art/buttons later!)
-        songs = ["Bratz - Feel The Power", "DJ Simon - 321 STARS"]
+        # Song list (4 songs)
+        songs = [
+            "Bratz - Feel The Power",
+            "DJ Simon - 321 STARS",
+            "Kandi Pop - Sweet Crush",
+            "Celeste - Mirror Dance"
+        ]
+
+        # Keep track of selected song (hover)
+        if not hasattr(self, "song_index"):
+            self.song_index = 0
+
+        # Layout positions — change these to fit your background design
+        start_y = 130  # vertical start position
+        spacing = 130  # space between song buttons
+        x = SCREEN_WIDTH // 2 + 20  # horizontal position
+
+        # Draw each song “button”
         for i, song in enumerate(songs):
-            color = PINK if i == 0 else WHITE
-            text = self.font.render(song, True, color)
-            self.screen.blit(text, (SCREEN_WIDTH // 2 - 250, 250 + i * 80))
+            # Colors for normal, hover, and selected
+            if i == self.song_index:
+                rect_color = (255, 182, 193)  # hover pink
+                text_color = (255, 255, 255)
+            else:
+                rect_color = (230, 230, 230)
+                text_color = (120, 120, 120)
 
-        prompt = self.font.render("Press 1 or 2 to Select", True, PURPLE)
-        self.screen.blit(prompt, (SCREEN_WIDTH // 2 - 200, 500))
+            # Draw rectangle (button background)
+            rect = pygame.Rect(x - 20, start_y + i * spacing - 10, 500, 60)
+            pygame.draw.rect(self.screen, rect_color, rect, border_radius=15)
+
+            # Draw song text centered in button
+            text = self.font.render(song, True, text_color)
+            text_rect = text.get_rect(center=(890, start_y + i * spacing + 20))
+            self.screen.blit(text, text_rect)
+
+        # Prompt
+        prompt = self.font.render("Use ↑ ↓ to select, Enter to confirm", True, (180, 120, 255))
+        self.screen.blit(prompt, (SCREEN_WIDTH // 2 - 230, SCREEN_HEIGHT - 100))
+
         pygame.display.flip()
 
+        # Handle input
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_1:
-                    self.selected_song = "feel_the_power"
-                    self.current_scene = "game"
-                elif event.key == pygame.K_2:
-                    self.selected_song = "321stars"
+                if event.key == pygame.K_UP:
+                    self.song_index = (self.song_index - 1) % len(songs)
+                elif event.key == pygame.K_DOWN:
+                    self.song_index = (self.song_index + 1) % len(songs)
+                elif event.key == pygame.K_RETURN:
+                    selected = self.song_index
+                    if selected == 0:
+                        self.selected_song = "feel_the_power"
+                    elif selected == 1:
+                        self.selected_song = "321stars"
+                    elif selected == 2:
+                        self.selected_song = "sweet_crush"
+                    elif selected == 3:
+                        self.selected_song = "mirror_dance"
                     self.current_scene = "game"
         return True
 
