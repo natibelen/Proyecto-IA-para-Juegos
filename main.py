@@ -15,7 +15,7 @@ PURPLE = (170, 0, 255)
 BLACK = (0, 0, 0)
 
 # Arrow settings
-ARROW_SPEED = 5
+BASE_ARROW_SPEED = 5  # default speed
 COLUMN_X = {
     "left": 200,
     "down": 300,
@@ -23,9 +23,6 @@ COLUMN_X = {
     "right": 500,
 }
 HIT_ZONE_Y = 100
-BPM = 138
-SPAWN_INTERVAL = 60.0 / BPM
-
 
 # --- CLASSES ---
 class Arrow:
@@ -48,7 +45,7 @@ class Arrow:
             return self.base_img
 
     def update(self):
-        self.y -= ARROW_SPEED
+        self.y -= BASE_ARROW_SPEED
 
     def draw(self, screen):
         rect = self.image.get_rect(center=(self.x, self.y))
@@ -60,52 +57,56 @@ class RhythmGame:
     def __init__(self):
         pygame.init()
         pygame.mixer.init()
+        pygame.joystick.init()
 
-        # Fullscreen mode (keeps aspect ratio nicely on any screen)
+        # Joystick setup
+        self.joysticks = [pygame.joystick.Joystick(i) for i in range(pygame.joystick.get_count())]
+        for joy in self.joysticks:
+            joy.init()
+            print(f"🎮 Detected joystick: {joy.get_name()}")
+
+        # Fullscreen mode
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SCALED)
         pygame.display.set_caption("Dance Dance ReMixed")
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont("Comic Sans MS", 36, bold=True)
 
-        # === Load and scale backgrounds ===
-        # Start screen background
+        # Backgrounds
         self.bg_start = pygame.image.load("STARTBACKGROUND.png").convert()
         self.bg_start = pygame.transform.smoothscale(self.bg_start, (SCREEN_WIDTH, SCREEN_HEIGHT))
 
-        # Song select background (can be replaced later)
         self.bg_select = pygame.image.load("MUSICSELECT.png").convert()
         self.bg_select = pygame.transform.smoothscale(self.bg_select, (SCREEN_WIDTH, SCREEN_HEIGHT))
 
+        # Arrows
         self.arrow_img = pygame.image.load("arrow.png").convert_alpha()
-        self.arrow_img = pygame.transform.scale(self.arrow_img, (70, 70))
+        self.arrow_img = pygame.transform.scale(self.arrow_img, (90, 90))
+        self.arrowfill_img = pygame.image.load("arrowfill.png").convert_alpha()
+        self.arrowfill_img = pygame.transform.scale(self.arrowfill_img, (90, 90))
 
-        # Video setup
-        self.video = cv2.VideoCapture("feel_the_power_video.mp4")
+        # Video placeholder
+        self.video = cv2.VideoCapture("butterfly_video.mp4")
 
         # Game vars
         self.arrows = []
-        self.last_spawn = time.time()
         self.score = 0
         self.judgement = ""
-        self.current_scene = "start"  # start -> select -> game
+        self.current_scene = "start"
         self.selected_song = None
+        self.chart_data = []
+        self.chart_index = 0
+        self.song_start_time = 0
 
-    # --- 🌸 START SCREEN ---
+    # --- START SCREEN ---
     def start_screen(self):
-        blink_interval = 0.6  # seconds between visible/invisible
+        blink_interval = 0.6
         show_text = (time.time() % (blink_interval * 2)) < blink_interval
-
-        # draw background
         self.screen.blit(self.bg_start, (0, 0))
-
-        # only draw text during visible interval
         if show_text:
             prompt = self.font.render("Press ENTER to Start", True, WHITE)
             self.screen.blit(prompt, (SCREEN_WIDTH // 2 - 180, SCREEN_HEIGHT // 2 + 225))
-
         pygame.display.flip()
 
-        # handle input
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
@@ -113,55 +114,36 @@ class RhythmGame:
                 self.current_scene = "select"
         return True
 
+    # --- SONG SELECT ---
     def song_select_screen(self):
-        # Load and draw the background image
-        bg = pygame.image.load("MUSICSELECT.png").convert()
-        bg = pygame.transform.scale(bg, (SCREEN_WIDTH, SCREEN_HEIGHT))
-        self.screen.blit(bg, (0, 0))
-
-        # Song list (4 songs)
+        self.screen.blit(self.bg_select, (0, 0))
         songs = [
-            "Bratz - Feel The Power",
+            "SMILE.dk - Butterfly",
             "DJ Simon - 321 STARS",
-            "Kandi Pop - Sweet Crush",
+            "dj TAKA feat. NORIA - Love Love Sugar",
             "Celeste - Mirror Dance"
         ]
-
-        # Keep track of selected song (hover)
         if not hasattr(self, "song_index"):
             self.song_index = 0
-
-        # Layout positions — change these to fit your background design
-        start_y = 130  # vertical start position
-        spacing = 130  # space between song buttons
-        x = SCREEN_WIDTH // 2 + 20  # horizontal position
-
-        # Draw each song “button”
+        start_y = 130
+        spacing = 130
+        x = SCREEN_WIDTH // 2 + 20
         for i, song in enumerate(songs):
-            # Colors for normal, hover, and selected
             if i == self.song_index:
-                rect_color = (255, 182, 193)  # hover pink
-                text_color = (255, 255, 255)
+                rect_color = (255, 182, 193)
+                text_color = WHITE
             else:
                 rect_color = (230, 230, 230)
                 text_color = (120, 120, 120)
-
-            # Draw rectangle (button background)
             rect = pygame.Rect(x - 20, start_y + i * spacing - 10, 500, 60)
             pygame.draw.rect(self.screen, rect_color, rect, border_radius=15)
-
-            # Draw song text centered in button
             text = self.font.render(song, True, text_color)
             text_rect = text.get_rect(center=(890, start_y + i * spacing + 20))
             self.screen.blit(text, text_rect)
-
-        # Prompt
         prompt = self.font.render("Use ↑ ↓ to select, Enter to confirm", True, (180, 120, 255))
         self.screen.blit(prompt, (SCREEN_WIDTH // 2 - 230, SCREEN_HEIGHT - 100))
-
         pygame.display.flip()
 
-        # Handle input
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
@@ -177,13 +159,13 @@ class RhythmGame:
                     elif selected == 1:
                         self.selected_song = "321stars"
                     elif selected == 2:
-                        self.selected_song = "sweet_crush"
+                        self.selected_song = "lovelovesugar"
                     elif selected == 3:
                         self.selected_song = "mirror_dance"
                     self.current_scene = "game"
         return True
 
-    # --- 🎥 GAMEPLAY SCREEN ---
+    # --- VIDEO ---
     def draw_video_frame(self):
         ret, frame = self.video.read()
         if not ret:
@@ -194,69 +176,137 @@ class RhythmGame:
         frame_surface = pygame.surfarray.make_surface(frame.swapaxes(0, 1))
         self.screen.blit(frame_surface, (0, 0))
 
-    def spawn_arrow(self):
-        direction = random.choice(["left", "down", "up", "right"])
-        self.arrows.append(Arrow(direction, self.arrow_img))
+    # --- CHART LOADING ---
+    def load_chart(self, filename="butterfly.chart"):
+        self.chart_data = []
+        with open(filename, "r") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    time_str, direction = line.split(",")
+                    t = float(time_str.strip())
+                    direction = direction.strip().lower()
+                    self.chart_data.append((t, direction))
+                except ValueError:
+                    pass
+        self.chart_index = 0
+        print(f"Loaded {len(self.chart_data)} notes from chart.")
 
-    def handle_input(self, key):
-        key_map = {
-            pygame.K_LEFT: "left",
-            pygame.K_DOWN: "down",
-            pygame.K_UP: "up",
-            pygame.K_RIGHT: "right",
-        }
-
-        if key not in key_map:
-            return
-        direction = key_map[key]
+    # --- INPUT HANDLING ---
+    def handle_input(self, direction):
         for arrow in self.arrows:
             if arrow.direction == direction and not arrow.hit:
                 diff = abs(arrow.y - HIT_ZONE_Y)
                 if diff < 10:
-                    self.judgement = "Perfect!"
+                    self.judgement = "PERFECT"
                     self.score += 100
                 elif diff < 25:
-                    self.judgement = "Good!"
+                    self.judgement = "GREAT"
                     self.score += 50
-                elif diff < 40:
-                    self.judgement = "Almost!"
+                elif diff < 50:
+                    self.judgement = "GOOD"
                     self.score += 20
+                elif diff < 70:
+                    self.judgement = "ALMOST"
+                    self.score += 10
                 else:
-                    self.judgement = "Miss"
+                    self.judgement = "BOO"
                 arrow.hit = True
                 return
 
+    # --- JOYSTICK TO ARROW MAPPING ---
+    def check_joystick(self):
+        for joy in self.joysticks:
+            x = joy.get_axis(0)
+            y = joy.get_axis(1)
+            hat_x, hat_y = 0, 0
+            if joy.get_numhats() > 0:
+                hat_x, hat_y = joy.get_hat(0)
+            # Prioritize D-pad over analog
+            dx = hat_x if hat_x != 0 else x
+            dy = hat_y if hat_y != 0 else y
+            if dx < -0.5:
+                self.handle_input("left")
+            elif dx > 0.5:
+                self.handle_input("right")
+            elif dy > 0.5:
+                self.handle_input("down")
+            elif dy < -0.5:
+                self.handle_input("up")
+
     def render_hit_zone(self):
-        pygame.draw.rect(self.screen, PURPLE, (100, HIT_ZONE_Y - 10, 450, 20), 3)
         for direction in ["left", "down", "up", "right"]:
-            img = Arrow(direction, self.arrow_img).image
+            img = Arrow(direction, self.arrowfill_img).image
             rect = img.get_rect(center=(COLUMN_X[direction], HIT_ZONE_Y))
             self.screen.blit(img, rect)
 
+    # --- GAME LOOP ---
     def game_loop(self):
-        pygame.mixer.music.load("Bratz - Feel The Power.mp3")
-        pygame.mixer.music.play()
-        running = True
+        if self.selected_song == "feel_the_power":
+            chart_file = "butterfly.chart"
+            music_file = "butterfly_recording.mp3"
+            video_file = "butterfly_video.mp4"
+        elif self.selected_song == "321stars":
+            chart_file = "321stars.chart"
+            music_file = "DJ SIMON - 321STARS (HQ) [K2l7HXC0p1c].mp3"
+            video_file = "321stars.mp4"
+        elif self.selected_song == "lovelovesugar":
+            chart_file = "lovelovesugar.chart"
+            music_file = "dj TAKA feat. NORIA - LOVE LOVE SUGAR (HQ).mp3"
+            video_file = "love love sugar.mp4"
+        elif self.selected_song == "mirror_dance":
+            chart_file = "mirror_dance.chart"
+            music_file = "mirror_dance.mp3"
+            video_file = "mirror_dance.mp4"
+        else:
+            chart_file = "butterfly.chart"
+            music_file = "butterfly_recording.mp3"
+            video_file = "butterfly_video.mp4"
 
+        if self.selected_song == "321stars":
+            arrow_speed = 15  # change this to test speed
+        else:
+            arrow_speed = BASE_ARROW_SPEED
+
+        # Load assets
+        self.load_chart(chart_file)
+        pygame.mixer.music.load(music_file)
+        pygame.mixer.music.play()
+        self.video = cv2.VideoCapture(video_file)
+        self.song_start_time = time.time()
+
+        running = True
         while running:
             self.clock.tick(FPS)
+            now = (pygame.mixer.music.get_pos() / 1000.0)
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         running = False
-                    else:
-                        self.handle_input(event.key)
+                    elif event.key == pygame.K_LEFT:
+                        self.handle_input("left")
+                    elif event.key == pygame.K_RIGHT:
+                        self.handle_input("right")
+                    elif event.key == pygame.K_UP:
+                        self.handle_input("up")
+                    elif event.key == pygame.K_DOWN:
+                        self.handle_input("down")
 
-            if time.time() - self.last_spawn >= SPAWN_INTERVAL:
-                self.spawn_arrow()
-                self.last_spawn = time.time()
+            self.check_joystick()
+
+            while self.chart_index < len(self.chart_data) and now >= self.chart_data[self.chart_index][0]:
+                _, direction = self.chart_data[self.chart_index]
+                self.arrows.append(Arrow(direction, self.arrow_img))
+                self.chart_index += 1
 
             for arrow in self.arrows:
                 arrow.update()
-
-            self.arrows = [a for a in self.arrows if a.y > -50]
+            self.arrows = [a for a in self.arrows if a.y > -50 and not a.hit]
 
             self.draw_video_frame()
             self.render_hit_zone()
@@ -265,11 +315,9 @@ class RhythmGame:
 
             score_text = self.font.render(f"Score: {self.score}", True, WHITE)
             self.screen.blit(score_text, (20, 20))
-
             if self.judgement:
                 j_text = self.font.render(self.judgement, True, PINK)
                 self.screen.blit(j_text, (SCREEN_WIDTH // 2 - 80, HIT_ZONE_Y + 40))
-
             pygame.display.flip()
 
             if not pygame.mixer.music.get_busy():
