@@ -16,6 +16,7 @@ FPS = 60
 
 latest_frame = None
 stop_capture = False
+agent_visual = False
 
 # Colors
 WHITE = (255, 255, 255)
@@ -152,6 +153,7 @@ class RhythmGame:
         prompt = self.font.render("Use ↑ ↓ to select, Enter to confirm", True, (180, 120, 255))
         self.screen.blit(prompt, (SCREEN_WIDTH // 2 - 230, SCREEN_HEIGHT - 100))
         pygame.display.flip()
+        global agent_visual
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -171,7 +173,13 @@ class RhythmGame:
                         self.selected_song = "lovelovesugar"
                     elif selected == 3:
                         self.selected_song = "mirror_dance"
-                    self.current_scene = "game"
+                    if agent_visual:
+                        self.current_scene = "visual_agent"
+                    else:
+                        self.current_scene = "game"
+                elif event.key == pygame.K_v:
+                    agent_visual = not agent_visual
+                    print("Visual Agent:", agent_visual)
         return True
 
     # --- VIDEO ---
@@ -431,13 +439,16 @@ class RhythmGame:
             elif self.current_scene == "select":
                 running = self.song_select_screen()
             elif self.current_scene == "game":
+                self.game_loop()
+                running = False
+            elif self.current_scene == "visual_agent":
                 self.game_loop_agent()
                 running = False
         pygame.quit()
 
 
 def take_screenshot():
-    
+
     global latest_frame
     sct = mss.mss()
     while not stop_capture:
