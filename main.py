@@ -1,12 +1,21 @@
+import numpy as np
 import pygame
-import random
-import time
 import cv2
+import mss
+import mss.tools
+import threading
+import time
+from PIL import Image
+from agent import get_region, check_pixel
 
 # --- SETTINGS ---
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
 FPS = 60
+
+
+latest_frame = None
+stop_capture = False
 
 # Colors
 WHITE = (255, 255, 255)
@@ -247,11 +256,11 @@ class RhythmGame:
         if self.selected_song == "feel_the_power":
             chart_file = "butterfly.chart"
             music_file = "butterfly_recording.mp3"
-            video_file = "butterfly_video.mp4"
+            video_file = "love love sugar.mp4"
         elif self.selected_song == "321stars":
             chart_file = "321stars.chart"
             music_file = "DJ SIMON - 321STARS (HQ) [K2l7HXC0p1c].mp3"
-            video_file = "321stars.mp4"
+            video_file = "love love sugar.mp4"
         elif self.selected_song == "lovelovesugar":
             chart_file = "lovelovesugar.chart"
             music_file = "dj TAKA feat. NORIA - LOVE LOVE SUGAR (HQ).mp3"
@@ -259,11 +268,11 @@ class RhythmGame:
         elif self.selected_song == "mirror_dance":
             chart_file = "mirror_dance.chart"
             music_file = "mirror_dance.mp3"
-            video_file = "mirror_dance.mp4"
+            video_file = "love love sugar.mp4"
         else:
             chart_file = "butterfly.chart"
             music_file = "butterfly_recording.mp3"
-            video_file = "butterfly_video.mp4"
+            video_file = "love love sugar.mp4"
 
         if self.selected_song == "321stars":
             arrow_speed = 15  # change this to test speed
@@ -323,6 +332,96 @@ class RhythmGame:
             if not pygame.mixer.music.get_busy():
                 running = False
 
+
+    def game_loop_agent(self):
+        if self.selected_song == "feel_the_power":
+            chart_file = "butterfly.chart"
+            music_file = "butterfly_recording.mp3"
+            video_file = "love love sugar.mp4"
+        elif self.selected_song == "321stars":
+            chart_file = "321stars.chart"
+            music_file = "DJ SIMON - 321STARS (HQ) [K2l7HXC0p1c].mp3"
+            video_file = "love love sugar.mp4"
+        elif self.selected_song == "lovelovesugar":
+            chart_file = "lovelovesugar.chart"
+            music_file = "dj TAKA feat. NORIA - LOVE LOVE SUGAR (HQ).mp3"
+            video_file = "love love sugar.mp4"
+        elif self.selected_song == "mirror_dance":
+            chart_file = "mirror_dance.chart"
+            music_file = "mirror_dance.mp3"
+            video_file = "love love sugar.mp4"
+        else:
+            chart_file = "butterfly.chart"
+            music_file = "butterfly_recording.mp3"
+            video_file = "love love sugar.mp4"
+
+        if self.selected_song == "321stars":
+            arrow_speed = 15  # change this to test speed
+        else:
+            arrow_speed = BASE_ARROW_SPEED
+
+        # Load assets
+        self.load_chart(chart_file)
+        pygame.mixer.music.load(music_file)
+        pygame.mixer.music.play()
+        self.video = cv2.VideoCapture(video_file)
+        self.song_start_time = time.time()
+
+        running = True
+
+        capture_thread = threading.Thread(target=take_screenshot, daemon=True)
+        capture_thread.start()
+
+        while running:
+
+            if latest_frame is not None:
+                if check_pixel(latest_frame, 62, 40):
+                    self.handle_input("left")
+                elif check_pixel(latest_frame, 128, 4):
+                    self.handle_input("down")
+                elif check_pixel(latest_frame, 228, 73):
+                    self.handle_input("up")
+                elif check_pixel(latest_frame, 292, 40):
+                    self.handle_input("right")
+
+
+            self.clock.tick(FPS)
+            now = (pygame.mixer.music.get_pos() / 1000.0)
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        running = False
+
+
+            self.check_joystick()
+
+            while self.chart_index < len(self.chart_data) and now >= self.chart_data[self.chart_index][0]:
+                _, direction = self.chart_data[self.chart_index]
+                self.arrows.append(Arrow(direction, self.arrow_img))
+                self.chart_index += 1
+
+            for arrow in self.arrows:
+                arrow.update()
+            self.arrows = [a for a in self.arrows if a.y > -50 and not a.hit]
+
+            self.draw_video_frame()
+            self.render_hit_zone()
+            for arrow in self.arrows:
+                arrow.draw(self.screen)
+
+            score_text = self.font.render(f"Score: {self.score}", True, WHITE)
+            self.screen.blit(score_text, (20, 20))
+            if self.judgement:
+                j_text = self.font.render(self.judgement, True, PINK)
+                self.screen.blit(j_text, (SCREEN_WIDTH // 2 - 80, HIT_ZONE_Y + 40))
+            pygame.display.flip()
+
+            if not pygame.mixer.music.get_busy():
+                running = False
+
     # --- MAIN LOOP ---
     def run(self):
         running = True
@@ -332,9 +431,19 @@ class RhythmGame:
             elif self.current_scene == "select":
                 running = self.song_select_screen()
             elif self.current_scene == "game":
-                self.game_loop()
+                self.game_loop_agent()
                 running = False
         pygame.quit()
+
+
+def take_screenshot():
+    
+    global latest_frame
+    sct = mss.mss()
+    while not stop_capture:
+        region = get_region("Dance Dance ReMixed")
+        img = np.array(sct.grab(region))
+        latest_frame = img
 
 
 # --- RUN ---
