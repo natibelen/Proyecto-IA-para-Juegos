@@ -5,7 +5,7 @@ import sys
 
 # --- CONFIG ---
 VIDEO_FILE = "321stars.mp4"
-SONG_FILE = "DJ SIMON - 321STARS (HQ) [K2l7HXC0p1c].mp3"
+SONG_FILE = "music_files/DJ SIMON - 321STARS (HQ) [K2l7HXC0p1c].mp3"
 CHART_FILE = "moveyourfeet.chart"
 SCREEN_SIZE = (600, 700)
 FPS = 30

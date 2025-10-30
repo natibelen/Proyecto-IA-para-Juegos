@@ -1,0 +1,20 @@
+SMILE.dk - Butterfly
+chart_files\butterfly.chart
+music_files\butterfly_recording.mp3
+video_files\love love sugar.mp4
+-
+DJ Simon - 321 STARS
+chart_files\321stars.chart
+music_files\DJ SIMON - 321STARS (HQ) [K2l7HXC0p1c].mp3
+video_files\love love sugar.mp4
+-
+dj TAKA feat. NORIA - Love Love Sugar
+chart_files\lovelovesugar.chart
+music_files\dj TAKA feat. NORIA - LOVE LOVE SUGAR (HQ).mp3
+video_files\love love sugar.mp4
+-
+Celeste - Mirror Dance
+chart_files\lovelovesugar.chart
+music_files\dj TAKA feat. NORIA - LOVE LOVE SUGAR (HQ).mp3
+video_files\love love sugar.mp4
+-

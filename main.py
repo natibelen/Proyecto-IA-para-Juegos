@@ -6,17 +6,14 @@ import mss.tools
 import threading
 import time
 from PIL import Image
-from agent import get_region, check_pixel
+from visual_agent import get_region, check_pixel, VisualAgent
 
 # --- SETTINGS ---
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
 FPS = 60
 
-
-latest_frame = None
-stop_capture = False
-agent_visual = False
+toggle_VA = False
 
 # Colors
 WHITE = (255, 255, 255)
@@ -102,7 +99,8 @@ class RhythmGame:
         self.score = 0
         self.judgement = ""
         self.current_scene = "start"
-        self.selected_song = None
+        self.selected_song = 0
+        self.song_list = None
         self.chart_data = []
         self.chart_index = 0
         self.song_start_time = 0
@@ -110,77 +108,68 @@ class RhythmGame:
     # --- START SCREEN ---
     def start_screen(self):
         blink_interval = 0.6
-        show_text = (time.time() % (blink_interval * 2)) < blink_interval
-        self.screen.blit(self.bg_start, (0, 0))
-        if show_text:
-            prompt = self.font.render("Press ENTER to Start", True, WHITE)
-            self.screen.blit(prompt, (SCREEN_WIDTH // 2 - 180, SCREEN_HEIGHT // 2 + 225))
-        pygame.display.flip()
+        while True:
+            show_text = (time.time() % (blink_interval * 2)) < blink_interval
+            self.screen.blit(self.bg_start, (0, 0))
+            if show_text:
+                prompt = self.font.render("Press ENTER to Start", True, WHITE)
+                self.screen.blit(prompt, (SCREEN_WIDTH // 2 - 180, SCREEN_HEIGHT // 2 + 225))
+            pygame.display.flip()
 
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                return False
-            elif event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
-                self.current_scene = "select"
-        return True
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return False
+                elif event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
+                    self.current_scene = "select"
+                    return True
 
     # --- SONG SELECT ---
     def song_select_screen(self):
+
+        file = open('song_list.txt')
+        self.song_list = file.readlines()
+        file.close()
+        songs = []
+        for i in range(int(len(self.song_list)/5)):
+            songs.append(self.song_list[i*5].rstrip('\n'))
+
         self.screen.blit(self.bg_select, (0, 0))
-        songs = [
-            "SMILE.dk - Butterfly",
-            "DJ Simon - 321 STARS",
-            "dj TAKA feat. NORIA - Love Love Sugar",
-            "Celeste - Mirror Dance"
-        ]
-        if not hasattr(self, "song_index"):
-            self.song_index = 0
         start_y = 130
         spacing = 130
         x = SCREEN_WIDTH // 2 + 20
-        for i, song in enumerate(songs):
-            if i == self.song_index:
-                rect_color = (255, 182, 193)
-                text_color = WHITE
-            else:
-                rect_color = (230, 230, 230)
-                text_color = (120, 120, 120)
-            rect = pygame.Rect(x - 20, start_y + i * spacing - 10, 500, 60)
-            pygame.draw.rect(self.screen, rect_color, rect, border_radius=15)
-            text = self.font.render(song, True, text_color)
-            text_rect = text.get_rect(center=(890, start_y + i * spacing + 20))
-            self.screen.blit(text, text_rect)
-        prompt = self.font.render("Use ↑ ↓ to select, Enter to confirm", True, (180, 120, 255))
-        self.screen.blit(prompt, (SCREEN_WIDTH // 2 - 230, SCREEN_HEIGHT - 100))
-        pygame.display.flip()
-        global agent_visual
+        global toggle_VA
 
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                return False
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_UP:
-                    self.song_index = (self.song_index - 1) % len(songs)
-                elif event.key == pygame.K_DOWN:
-                    self.song_index = (self.song_index + 1) % len(songs)
-                elif event.key == pygame.K_RETURN:
-                    selected = self.song_index
-                    if selected == 0:
-                        self.selected_song = "feel_the_power"
-                    elif selected == 1:
-                        self.selected_song = "321stars"
-                    elif selected == 2:
-                        self.selected_song = "lovelovesugar"
-                    elif selected == 3:
-                        self.selected_song = "mirror_dance"
-                    if agent_visual:
-                        self.current_scene = "visual_agent"
-                    else:
+        while True:
+            for i in range(len(songs)):
+                if i == self.selected_song:
+                    rect_color = (255, 182, 193)
+                    text_color = WHITE
+                else:
+                    rect_color = (230, 230, 230)
+                    text_color = (120, 120, 120)
+                rect = pygame.Rect(x - 20, start_y + i * spacing - 10, 500, 60)
+                pygame.draw.rect(self.screen, rect_color, rect, border_radius=15)
+                text = self.font.render(songs[i], True, text_color)
+                text_rect = text.get_rect(center=(890, start_y + i * spacing + 20))
+                self.screen.blit(text, text_rect)
+            prompt = self.font.render("Use ↑ ↓ to select, Enter to confirm", True, (180, 120, 255))
+            self.screen.blit(prompt, (SCREEN_WIDTH // 2 - 230, SCREEN_HEIGHT - 100))
+            pygame.display.flip()
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_UP:
+                        self.selected_song = (self.selected_song - 1) % len(songs)
+                    elif event.key == pygame.K_DOWN:
+                        self.selected_song = (self.selected_song + 1) % len(songs)
+                    elif event.key == pygame.K_RETURN:
                         self.current_scene = "game"
-                elif event.key == pygame.K_v:
-                    agent_visual = not agent_visual
-                    print("Visual Agent:", agent_visual)
-        return True
+                        return True
+                    elif event.key == pygame.K_v:
+                        toggle_VA = not toggle_VA
+                        print("Visual Agent:", toggle_VA)
 
     # --- VIDEO ---
     def draw_video_frame(self):
@@ -233,6 +222,23 @@ class RhythmGame:
                 arrow.hit = True
                 return
 
+    # --- ARROW KEYS HANDLING ---
+    def check_keys(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    return False
+                elif event.key == pygame.K_LEFT:
+                    self.handle_input("left")
+                elif event.key == pygame.K_RIGHT:
+                    self.handle_input("right")
+                elif event.key == pygame.K_UP:
+                    self.handle_input("up")
+                elif event.key == pygame.K_DOWN:
+                    self.handle_input("down")
+
     # --- JOYSTICK TO ARROW MAPPING ---
     def check_joystick(self):
         for joy in self.joysticks:
@@ -261,60 +267,31 @@ class RhythmGame:
 
     # --- GAME LOOP ---
     def game_loop(self):
-        if self.selected_song == "feel_the_power":
-            chart_file = "butterfly.chart"
-            music_file = "butterfly_recording.mp3"
-            video_file = "love love sugar.mp4"
-        elif self.selected_song == "321stars":
-            chart_file = "321stars.chart"
-            music_file = "DJ SIMON - 321STARS (HQ) [K2l7HXC0p1c].mp3"
-            video_file = "love love sugar.mp4"
-        elif self.selected_song == "lovelovesugar":
-            chart_file = "lovelovesugar.chart"
-            music_file = "dj TAKA feat. NORIA - LOVE LOVE SUGAR (HQ).mp3"
-            video_file = "love love sugar.mp4"
-        elif self.selected_song == "mirror_dance":
-            chart_file = "mirror_dance.chart"
-            music_file = "mirror_dance.mp3"
-            video_file = "love love sugar.mp4"
-        else:
-            chart_file = "butterfly.chart"
-            music_file = "butterfly_recording.mp3"
-            video_file = "love love sugar.mp4"
-
-        if self.selected_song == "321stars":
-            arrow_speed = 15  # change this to test speed
-        else:
-            arrow_speed = BASE_ARROW_SPEED
-
         # Load assets
+        chart_file = self.song_list[self.selected_song*5 +1].rstrip('\n')
+        music_file = self.song_list[self.selected_song*5 +2].rstrip('\n')
+        video_file = self.song_list[self.selected_song*5 +3].rstrip('\n')
         self.load_chart(chart_file)
         pygame.mixer.music.load(music_file)
         pygame.mixer.music.play()
         self.video = cv2.VideoCapture(video_file)
         self.song_start_time = time.time()
 
-        running = True
-        while running:
+        visual_agent = VisualAgent()
+        if toggle_VA:
+            capture_thread = threading.Thread(target=visual_agent.take_screenshot, daemon=True)
+            capture_thread.start()
+
+        # Game Loop
+        while True:
             self.clock.tick(FPS)
             now = (pygame.mixer.music.get_pos() / 1000.0)
 
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        running = False
-                    elif event.key == pygame.K_LEFT:
-                        self.handle_input("left")
-                    elif event.key == pygame.K_RIGHT:
-                        self.handle_input("right")
-                    elif event.key == pygame.K_UP:
-                        self.handle_input("up")
-                    elif event.key == pygame.K_DOWN:
-                        self.handle_input("down")
-
-            self.check_joystick()
+            if toggle_VA:
+                visual_agent.check_visual_agent(self)
+            else:
+                self.check_keys()
+                self.check_joystick()
 
             while self.chart_index < len(self.chart_data) and now >= self.chart_data[self.chart_index][0]:
                 _, direction = self.chart_data[self.chart_index]
@@ -338,97 +315,7 @@ class RhythmGame:
             pygame.display.flip()
 
             if not pygame.mixer.music.get_busy():
-                running = False
-
-
-    def game_loop_agent(self):
-        if self.selected_song == "feel_the_power":
-            chart_file = "butterfly.chart"
-            music_file = "butterfly_recording.mp3"
-            video_file = "love love sugar.mp4"
-        elif self.selected_song == "321stars":
-            chart_file = "321stars.chart"
-            music_file = "DJ SIMON - 321STARS (HQ) [K2l7HXC0p1c].mp3"
-            video_file = "love love sugar.mp4"
-        elif self.selected_song == "lovelovesugar":
-            chart_file = "lovelovesugar.chart"
-            music_file = "dj TAKA feat. NORIA - LOVE LOVE SUGAR (HQ).mp3"
-            video_file = "love love sugar.mp4"
-        elif self.selected_song == "mirror_dance":
-            chart_file = "mirror_dance.chart"
-            music_file = "mirror_dance.mp3"
-            video_file = "love love sugar.mp4"
-        else:
-            chart_file = "butterfly.chart"
-            music_file = "butterfly_recording.mp3"
-            video_file = "love love sugar.mp4"
-
-        if self.selected_song == "321stars":
-            arrow_speed = 15  # change this to test speed
-        else:
-            arrow_speed = BASE_ARROW_SPEED
-
-        # Load assets
-        self.load_chart(chart_file)
-        pygame.mixer.music.load(music_file)
-        pygame.mixer.music.play()
-        self.video = cv2.VideoCapture(video_file)
-        self.song_start_time = time.time()
-
-        running = True
-
-        capture_thread = threading.Thread(target=take_screenshot, daemon=True)
-        capture_thread.start()
-
-        while running:
-
-            if latest_frame is not None:
-                if check_pixel(latest_frame, 62, 40):
-                    self.handle_input("left")
-                elif check_pixel(latest_frame, 128, 4):
-                    self.handle_input("down")
-                elif check_pixel(latest_frame, 228, 73):
-                    self.handle_input("up")
-                elif check_pixel(latest_frame, 292, 40):
-                    self.handle_input("right")
-
-
-            self.clock.tick(FPS)
-            now = (pygame.mixer.music.get_pos() / 1000.0)
-
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        running = False
-
-
-            self.check_joystick()
-
-            while self.chart_index < len(self.chart_data) and now >= self.chart_data[self.chart_index][0]:
-                _, direction = self.chart_data[self.chart_index]
-                self.arrows.append(Arrow(direction, self.arrow_img))
-                self.chart_index += 1
-
-            for arrow in self.arrows:
-                arrow.update()
-            self.arrows = [a for a in self.arrows if a.y > -50 and not a.hit]
-
-            self.draw_video_frame()
-            self.render_hit_zone()
-            for arrow in self.arrows:
-                arrow.draw(self.screen)
-
-            score_text = self.font.render(f"Score: {self.score}", True, WHITE)
-            self.screen.blit(score_text, (20, 20))
-            if self.judgement:
-                j_text = self.font.render(self.judgement, True, PINK)
-                self.screen.blit(j_text, (SCREEN_WIDTH // 2 - 80, HIT_ZONE_Y + 40))
-            pygame.display.flip()
-
-            if not pygame.mixer.music.get_busy():
-                running = False
+                return False
 
     # --- MAIN LOOP ---
     def run(self):
@@ -439,22 +326,9 @@ class RhythmGame:
             elif self.current_scene == "select":
                 running = self.song_select_screen()
             elif self.current_scene == "game":
-                self.game_loop()
-                running = False
-            elif self.current_scene == "visual_agent":
-                self.game_loop_agent()
-                running = False
+                running = self.game_loop()
         pygame.quit()
 
-
-def take_screenshot():
-
-    global latest_frame
-    sct = mss.mss()
-    while not stop_capture:
-        region = get_region("Dance Dance ReMixed")
-        img = np.array(sct.grab(region))
-        latest_frame = img
 
 
 # --- RUN ---
