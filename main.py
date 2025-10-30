@@ -156,8 +156,6 @@ class RhythmGame:
 
                 text_rect = text.get_rect(center=(890, start_y + i * spacing + 20))
                 self.screen.blit(text, text_rect)
-            self.screen.blit(self.font.render(u"Arrows to select", True, (80,80,80)), (SCREEN_WIDTH/14, SCREEN_HEIGHT/2+80))
-            self.screen.blit(self.font.render("Enter to confirm", True, (80,80,80)), (SCREEN_WIDTH/14, SCREEN_HEIGHT/2+130))
             pygame.display.flip()
 
             for event in pygame.event.get():
