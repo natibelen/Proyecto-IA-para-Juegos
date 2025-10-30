@@ -1,19 +1,16 @@
-import numpy as np
 import pygame
 import cv2
-import mss
-import mss.tools
 import threading
 import time
-from PIL import Image
-from visual_agent import get_region, check_pixel, VisualAgent
+
+from text_manipulation import MovingText
+from visual_agent import VisualAgent
+toggle_VA = False
 
 # --- SETTINGS ---
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
 FPS = 60
-
-toggle_VA = False
 
 # Colors
 WHITE = (255, 255, 255)
@@ -125,13 +122,15 @@ class RhythmGame:
 
     # --- SONG SELECT ---
     def song_select_screen(self):
-
         file = open('song_list.txt')
         self.song_list = file.readlines()
         file.close()
         songs = []
         for i in range(int(len(self.song_list)/5)):
-            songs.append(self.song_list[i*5].rstrip('\n'))
+            if len(self.song_list[i * 5].rstrip('\n')) > 25:
+                songs.append(MovingText(self.song_list[i * 5].rstrip('\n'), 25))
+            else:
+                songs.append(self.song_list[i*5].rstrip('\n'))
 
         self.screen.blit(self.bg_select, (0, 0))
         start_y = 130
@@ -147,20 +146,28 @@ class RhythmGame:
                 else:
                     rect_color = (230, 230, 230)
                     text_color = (120, 120, 120)
-                rect = pygame.Rect(x - 20, start_y + i * spacing - 10, 500, 60)
+                rect = pygame.Rect(x - 65, start_y + i * spacing - 10, 600, 60)
                 pygame.draw.rect(self.screen, rect_color, rect, border_radius=15)
-                text = self.font.render(songs[i], True, text_color)
+
+                if isinstance(songs[i], MovingText):
+                    text = self.font.render(songs[i].move(40, 80), True, text_color)
+                else:
+                    text = self.font.render(songs[i], True, text_color)
+
                 text_rect = text.get_rect(center=(890, start_y + i * spacing + 20))
                 self.screen.blit(text, text_rect)
-            prompt = self.font.render("Use ↑ ↓ to select, Enter to confirm", True, (180, 120, 255))
-            self.screen.blit(prompt, (SCREEN_WIDTH // 2 - 230, SCREEN_HEIGHT - 100))
+            self.screen.blit(self.font.render(u"Arrows to select", True, (80,80,80)), (SCREEN_WIDTH/14, SCREEN_HEIGHT/2+80))
+            self.screen.blit(self.font.render("Enter to confirm", True, (80,80,80)), (SCREEN_WIDTH/14, SCREEN_HEIGHT/2+130))
             pygame.display.flip()
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return False
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_UP:
+                    if event.key == pygame.K_ESCAPE:
+                        self.current_scene = "start"
+                        return True
+                    elif event.key == pygame.K_UP:
                         self.selected_song = (self.selected_song - 1) % len(songs)
                     elif event.key == pygame.K_DOWN:
                         self.selected_song = (self.selected_song + 1) % len(songs)
@@ -222,23 +229,6 @@ class RhythmGame:
                 arrow.hit = True
                 return
 
-    # --- ARROW KEYS HANDLING ---
-    def check_keys(self):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                return False
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    return False
-                elif event.key == pygame.K_LEFT:
-                    self.handle_input("left")
-                elif event.key == pygame.K_RIGHT:
-                    self.handle_input("right")
-                elif event.key == pygame.K_UP:
-                    self.handle_input("up")
-                elif event.key == pygame.K_DOWN:
-                    self.handle_input("down")
-
     # --- JOYSTICK TO ARROW MAPPING ---
     def check_joystick(self):
         for joy in self.joysticks:
@@ -290,7 +280,21 @@ class RhythmGame:
             if toggle_VA:
                 visual_agent.check_visual_agent(self)
             else:
-                self.check_keys()
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        return False
+                    elif event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_ESCAPE:
+                            self.current_scene = "select"
+                            return True
+                        elif event.key == pygame.K_LEFT:
+                            self.handle_input("left")
+                        elif event.key == pygame.K_RIGHT:
+                            self.handle_input("right")
+                        elif event.key == pygame.K_UP:
+                            self.handle_input("up")
+                        elif event.key == pygame.K_DOWN:
+                            self.handle_input("down")
                 self.check_joystick()
 
             while self.chart_index < len(self.chart_data) and now >= self.chart_data[self.chart_index][0]:
@@ -328,8 +332,6 @@ class RhythmGame:
             elif self.current_scene == "game":
                 running = self.game_loop()
         pygame.quit()
-
-
 
 # --- RUN ---
 if __name__ == "__main__":
