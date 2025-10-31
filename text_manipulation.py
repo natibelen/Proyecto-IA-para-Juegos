@@ -10,6 +10,7 @@ class MovingText:
     def move(self, moving, stopping):
         self.time += 1
         if self.time % moving == 0 and not self.stop:
+            self.time = 0
             if self.move_for:
                 self.start += 1
                 self.end += 1
@@ -25,6 +26,7 @@ class MovingText:
                 self.stop = True
 
         elif self.time % stopping == 0 and self.stop:
+            self.time = 0
             self.stop = False
 
         return self.text[self.start:self.end]

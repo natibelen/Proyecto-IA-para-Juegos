@@ -20,7 +20,7 @@ font = pygame.font.Font(None, 36)
 WHITE = (255, 255, 255)
 
 # --- Load arrows ---
-base_arrow = pygame.image.load("arrowfill.png").convert_alpha()
+base_arrow = pygame.image.load("resources/arrowfill.png").convert_alpha()
 base_arrow = pygame.transform.scale(base_arrow, (80, 80))
 
 arrow_images = {

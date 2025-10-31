@@ -3,6 +3,7 @@ import cv2
 import threading
 import time
 
+from image_loader import ImageLoader
 from text_manipulation import MovingText
 from visual_agent import VisualAgent
 toggle_VA = False
@@ -75,19 +76,6 @@ class RhythmGame:
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont("Comic Sans MS", 36, bold=True)
 
-        # Backgrounds
-        self.bg_start = pygame.image.load("STARTBACKGROUND.png").convert()
-        self.bg_start = pygame.transform.smoothscale(self.bg_start, (SCREEN_WIDTH, SCREEN_HEIGHT))
-
-        self.bg_select = pygame.image.load("MUSICSELECT.png").convert()
-        self.bg_select = pygame.transform.smoothscale(self.bg_select, (SCREEN_WIDTH, SCREEN_HEIGHT))
-
-        # Arrows
-        self.arrow_img = pygame.image.load("arrow.png").convert_alpha()
-        self.arrow_img = pygame.transform.scale(self.arrow_img, (90, 90))
-        self.arrowfill_img = pygame.image.load("arrowfill.png").convert_alpha()
-        self.arrowfill_img = pygame.transform.scale(self.arrowfill_img, (90, 90))
-
         # Video placeholder
         self.video = cv2.VideoCapture("butterfly_video.mp4")
 
@@ -107,7 +95,7 @@ class RhythmGame:
         blink_interval = 0.6
         while True:
             show_text = (time.time() % (blink_interval * 2)) < blink_interval
-            self.screen.blit(self.bg_start, (0, 0))
+            self.screen.blit(ImageLoader().get_background(0), (0, 0))
             if show_text:
                 prompt = self.font.render("Press ENTER to Start", True, WHITE)
                 self.screen.blit(prompt, (SCREEN_WIDTH // 2 - 180, SCREEN_HEIGHT // 2 + 225))
@@ -132,7 +120,7 @@ class RhythmGame:
             else:
                 songs.append(self.song_list[i*5].rstrip('\n'))
 
-        self.screen.blit(self.bg_select, (0, 0))
+        self.screen.blit(ImageLoader().get_background(1), (0, 0))
         start_y = 130
         spacing = 130
         x = SCREEN_WIDTH // 2 + 20
@@ -156,6 +144,9 @@ class RhythmGame:
 
                 text_rect = text.get_rect(center=(890, start_y + i * spacing + 20))
                 self.screen.blit(text, text_rect)
+
+            rect_cover = ImageLoader().get_cover(self.selected_song).get_rect(center=(SCREEN_WIDTH/6+20, SCREEN_HEIGHT/2))
+            self.screen.blit(ImageLoader().get_cover(self.selected_song), rect_cover)
             pygame.display.flip()
 
             for event in pygame.event.get():
@@ -249,20 +240,17 @@ class RhythmGame:
 
     def render_hit_zone(self):
         for direction in ["left", "down", "up", "right"]:
-            img = Arrow(direction, self.arrowfill_img).image
+            img = Arrow(direction, ImageLoader().get_arrow(1)).image
             rect = img.get_rect(center=(COLUMN_X[direction], HIT_ZONE_Y))
             self.screen.blit(img, rect)
 
     # --- GAME LOOP ---
     def game_loop(self):
         # Load assets
-        chart_file = self.song_list[self.selected_song*5 +1].rstrip('\n')
-        music_file = self.song_list[self.selected_song*5 +2].rstrip('\n')
-        video_file = self.song_list[self.selected_song*5 +3].rstrip('\n')
-        self.load_chart(chart_file)
-        pygame.mixer.music.load(music_file)
+        self.load_chart(self.song_list[self.selected_song*5 +1].rstrip('\n'))
+        pygame.mixer.music.load(self.song_list[self.selected_song*5 +2].rstrip('\n'))
         pygame.mixer.music.play()
-        self.video = cv2.VideoCapture(video_file)
+        self.video = cv2.VideoCapture(self.song_list[self.selected_song*5 +3].rstrip('\n'))
         self.song_start_time = time.time()
 
         visual_agent = VisualAgent()
@@ -297,7 +285,7 @@ class RhythmGame:
 
             while self.chart_index < len(self.chart_data) and now >= self.chart_data[self.chart_index][0]:
                 _, direction = self.chart_data[self.chart_index]
-                self.arrows.append(Arrow(direction, self.arrow_img))
+                self.arrows.append(Arrow(direction, ImageLoader().get_arrow(0)))
                 self.chart_index += 1
 
             for arrow in self.arrows:
@@ -310,7 +298,7 @@ class RhythmGame:
                 arrow.draw(self.screen)
 
             score_text = self.font.render(f"Score: {self.score}", True, WHITE)
-            self.screen.blit(score_text, (20, 20))
+            self.screen.blit(score_text, (20, 10))
             if self.judgement:
                 j_text = self.font.render(self.judgement, True, PINK)
                 self.screen.blit(j_text, (SCREEN_WIDTH // 2 - 80, HIT_ZONE_Y + 40))
