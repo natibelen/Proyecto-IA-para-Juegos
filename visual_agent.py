@@ -1,4 +1,3 @@
-import mss
 import numpy as np
 import win32gui
 import mss
@@ -8,17 +7,21 @@ class VisualAgent:
     def __init__(self):
         self.latest_frame = None
         self.stop_capture = False
+        self.wait_time = 0
 
     def check_visual_agent(self, game):
-        if self.latest_frame is not None:
+        if self.latest_frame is not None and self.wait_time == 0:
             if check_pixel(self.latest_frame, 62, 40):
                 game.handle_input("left")
             elif check_pixel(self.latest_frame, 128, 4):
                 game.handle_input("down")
             elif check_pixel(self.latest_frame, 228, 73):
                 game.handle_input("up")
-            elif check_pixel(self.latest_frame, 292, 40):
+            elif check_pixel(self.latest_frame, 296, 40):
                 game.handle_input("right")
+            self.wait_time = 1
+        elif self.wait_time > 0:
+            self.wait_time -=1
 
     def take_screenshot(self):
         sct = mss.mss()

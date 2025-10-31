@@ -6,6 +6,7 @@ import time
 from image_loader import ImageLoader
 from text_manipulation import MovingText
 from visual_agent import VisualAgent
+
 toggle_VA = False
 
 # --- SETTINGS ---
@@ -179,7 +180,7 @@ class RhythmGame:
         self.screen.blit(frame_surface, (0, 0))
 
     # --- CHART LOADING ---
-    def load_chart(self, filename="butterfly.chart"):
+    def load_chart(self, filename):
         self.chart_data = []
         with open(filename, "r") as f:
             for line in f:
@@ -265,23 +266,23 @@ class RhythmGame:
 
             if toggle_VA:
                 visual_agent.check_visual_agent(self)
-            else:
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        return False
-                    elif event.type == pygame.KEYDOWN:
-                        if event.key == pygame.K_ESCAPE:
-                            self.current_scene = "select"
-                            return True
-                        elif event.key == pygame.K_LEFT:
-                            self.handle_input("left")
-                        elif event.key == pygame.K_RIGHT:
-                            self.handle_input("right")
-                        elif event.key == pygame.K_UP:
-                            self.handle_input("up")
-                        elif event.key == pygame.K_DOWN:
-                            self.handle_input("down")
-                self.check_joystick()
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        self.current_scene = "select"
+                        return True
+                    elif event.key == pygame.K_LEFT:
+                        self.handle_input("left")
+                    elif event.key == pygame.K_RIGHT:
+                        self.handle_input("right")
+                    elif event.key == pygame.K_UP:
+                        self.handle_input("up")
+                    elif event.key == pygame.K_DOWN:
+                        self.handle_input("down")
+            self.check_joystick()
 
             while self.chart_index < len(self.chart_data) and now >= self.chart_data[self.chart_index][0]:
                 _, direction = self.chart_data[self.chart_index]
