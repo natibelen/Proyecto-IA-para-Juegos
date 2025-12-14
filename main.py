@@ -278,6 +278,7 @@ class RhythmGame:
             rect = img.get_rect(center=(COLUMN_X[direction], HIT_ZONE_Y))
             self.screen.blit(img, rect)
 
+
     # --- GAME LOOP ---
     def game_loop(self):
         # Load assets
@@ -308,10 +309,12 @@ class RhythmGame:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return False
-
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         self.current_scene = "select"
+                        pygame.mixer.music.stop()
+                        for del_arrow in self.arrows:
+                            del_arrow.hit = True
                         return True
                     elif event.key == pygame.K_LEFT:
                         self.last_human_action = 1
@@ -338,31 +341,31 @@ class RhythmGame:
                 elif event.type == pygame.JOYHATMOTION:
                     hx, hy = event.value
                     if hx == -1:
-                        self.last_human_action = 1;
+                        self.last_human_action = 1
                         self.handle_input("left")
                     elif hx == 1:
-                        self.last_human_action = 2;
+                        self.last_human_action = 2
                         self.handle_input("right")
                     elif hy == 1:
-                        self.last_human_action = 3;
+                        self.last_human_action = 3
                         self.handle_input("up")
                     elif hy == -1:
-                        self.last_human_action = 4;
+                        self.last_human_action = 4
                         self.handle_input("down")
 
                 elif event.type == pygame.JOYBUTTONDOWN:
                     b = event.button
                     if b in (2, 13):  # Square / D-pad Left
-                        self.last_human_action = 1;
+                        self.last_human_action = 1
                         self.handle_input("left")
                     elif b in (1, 14):  # O / D-pad Right
-                        self.last_human_action = 2;
+                        self.last_human_action = 2
                         self.handle_input("right")
                     elif b in (3, 11):  # Triangle / D-pad Up
-                        self.last_human_action = 3;
+                        self.last_human_action = 3
                         self.handle_input("up")
                     elif b in (0, 12):  # X / D-pad Down
-                        self.last_human_action = 4;
+                        self.last_human_action = 4
                         self.handle_input("down")
 
             while self.chart_index < len(self.chart_data) and now >= self.chart_data[self.chart_index][0]:
@@ -380,12 +383,10 @@ class RhythmGame:
             #if self.il_agent is not None:
                #self.il_agent.update(self, now_ms, state)
 
-            self.draw_video_frame()
 
             if AUTO_PLAY:
                 self.autoplayer.update(self)
 
-            self.draw_video_frame()
 
             self.draw_video_frame()
             self.render_hit_zone()
