@@ -7,10 +7,12 @@ from image_loader import ImageLoader
 from text_manipulation import MovingText
 from visual_agent import VisualAgent
 from autoplayer import AutoPlayer
+from demo_recorder import DemoRecorder
+from imitation_agent import ImitationAgent
 
 
 toggle_VA = False
-AUTO_PLAY = True
+AUTO_PLAY = False
 
 
 # --- SETTINGS ---
@@ -64,11 +66,37 @@ class Arrow:
 
 # --- MAIN GAME ---
 class RhythmGame:
+
+    def get_state_vector(self):
+        vec = []
+        for direction in ["left", "down", "up", "right"]:
+            candidates = [a for a in self.arrows if a.direction == direction and not a.hit]
+            if candidates:
+                a = min(candidates, key=lambda x: abs(x.y - HIT_ZONE_Y))
+                vec.append(a.y - HIT_ZONE_Y)
+            else:
+                vec.append(9999.0)
+        return vec
+
     def __init__(self):
         pygame.init()
         pygame.mixer.init()
         pygame.joystick.init()
+        pygame.event.set_allowed([
+            pygame.QUIT,
+            pygame.KEYDOWN,
+            pygame.KEYUP,
+            pygame.JOYBUTTONDOWN,
+            pygame.JOYBUTTONUP,
+            pygame.JOYHATMOTION,
+            pygame.JOYAXISMOTION
+        ])
+
         self.autoplayer = AutoPlayer(hit_zone_y=HIT_ZONE_Y, perfect_win=10, cooldown_ms=40)
+        self.rec = DemoRecorder("demos.csv")
+        self.il_agent = None #cargar dps para imitation agent
+        self.last_human_action = 0
+
 
         # Joystick setup
         self.joysticks = [pygame.joystick.Joystick(i) for i in range(pygame.joystick.get_count())]
@@ -270,25 +298,72 @@ class RhythmGame:
             self.clock.tick(FPS)
             now = (pygame.mixer.music.get_pos() / 1000.0)
 
+            self.last_human_action = 0
+            now_ms = pygame.time.get_ticks()
+
+
             if toggle_VA:
                 visual_agent.check_visual_agent(self)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return False
+
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         self.current_scene = "select"
                         return True
                     elif event.key == pygame.K_LEFT:
+                        self.last_human_action = 1
                         self.handle_input("left")
                     elif event.key == pygame.K_RIGHT:
+                        self.last_human_action = 2
                         self.handle_input("right")
                     elif event.key == pygame.K_UP:
+                        self.last_human_action = 3
                         self.handle_input("up")
                     elif event.key == pygame.K_DOWN:
+                        self.last_human_action = 4
                         self.handle_input("down")
-            self.check_joystick()
+                    elif event.key == pygame.K_r:
+                        if not self.rec.enabled:
+                            self.rec.start()
+                        else:
+                            self.rec.stop_and_save()
+                    elif event.key == pygame.K_l:
+                        self.il_agent = ImitationAgent("bc_model.pt")
+                        self.il_agent.reset()
+                        print("[IL] Loaded bc_model.pt")
+
+                elif event.type == pygame.JOYHATMOTION:
+                    hx, hy = event.value
+                    if hx == -1:
+                        self.last_human_action = 1;
+                        self.handle_input("left")
+                    elif hx == 1:
+                        self.last_human_action = 2;
+                        self.handle_input("right")
+                    elif hy == 1:
+                        self.last_human_action = 3;
+                        self.handle_input("up")
+                    elif hy == -1:
+                        self.last_human_action = 4;
+                        self.handle_input("down")
+
+                elif event.type == pygame.JOYBUTTONDOWN:
+                    b = event.button
+                    if b in (2, 13):  # Square / D-pad Left
+                        self.last_human_action = 1;
+                        self.handle_input("left")
+                    elif b in (1, 14):  # O / D-pad Right
+                        self.last_human_action = 2;
+                        self.handle_input("right")
+                    elif b in (3, 11):  # Triangle / D-pad Up
+                        self.last_human_action = 3;
+                        self.handle_input("up")
+                    elif b in (0, 12):  # X / D-pad Down
+                        self.last_human_action = 4;
+                        self.handle_input("down")
 
             while self.chart_index < len(self.chart_data) and now >= self.chart_data[self.chart_index][0]:
                 _, direction = self.chart_data[self.chart_index]
@@ -298,6 +373,14 @@ class RhythmGame:
             for arrow in self.arrows:
                 arrow.update()
             self.arrows = [a for a in self.arrows if a.y > -50 and not a.hit]
+
+            state = self.get_state_vector()
+            self.rec.add(now, state, self.last_human_action)
+
+            #if self.il_agent is not None:
+               #self.il_agent.update(self, now_ms, state)
+
+            self.draw_video_frame()
 
             if AUTO_PLAY:
                 self.autoplayer.update(self)
