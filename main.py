@@ -6,8 +6,12 @@ import time
 from image_loader import ImageLoader
 from text_manipulation import MovingText
 from visual_agent import VisualAgent
+from autoplayer import AutoPlayer
+
 
 toggle_VA = False
+AUTO_PLAY = True
+
 
 # --- SETTINGS ---
 SCREEN_WIDTH = 1280
@@ -64,6 +68,7 @@ class RhythmGame:
         pygame.init()
         pygame.mixer.init()
         pygame.joystick.init()
+        self.autoplayer = AutoPlayer(hit_zone_y=HIT_ZONE_Y, perfect_win=10, cooldown_ms=40)
 
         # Joystick setup
         self.joysticks = [pygame.joystick.Joystick(i) for i in range(pygame.joystick.get_count())]
@@ -202,7 +207,7 @@ class RhythmGame:
         for arrow in self.arrows:
             if arrow.direction == direction and not arrow.hit:
                 diff = abs(arrow.y - HIT_ZONE_Y)
-                if diff < 10:
+                if diff <= 10:
                     self.judgement = "PERFECT"
                     self.score += 100
                 elif diff < 25:
@@ -259,6 +264,7 @@ class RhythmGame:
             capture_thread = threading.Thread(target=visual_agent.take_screenshot, daemon=True)
             capture_thread.start()
 
+
         # Game Loop
         while True:
             self.clock.tick(FPS)
@@ -292,6 +298,11 @@ class RhythmGame:
             for arrow in self.arrows:
                 arrow.update()
             self.arrows = [a for a in self.arrows if a.y > -50 and not a.hit]
+
+            if AUTO_PLAY:
+                self.autoplayer.update(self)
+
+            self.draw_video_frame()
 
             self.draw_video_frame()
             self.render_hit_zone()
